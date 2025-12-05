@@ -1,3 +1,4 @@
+-- 1st query 
 CREATE DATABASE pet_manager;
 USE pet_manager;
 
@@ -26,7 +27,7 @@ CREATE TABLE adoption_requests (
 );
 
 ;
--- show everything
+-- show everything (2ND QUERY)
 SHOW TABLES;
 
 DESCRIBE pets;
@@ -35,13 +36,13 @@ DESCRIBE adoption_requests;
 SELECT * FROM pets;
 SELECT * FROM adoption_requests;
 ;
--- inserting pet
+-- inserting pet (3RD QUERY)
 INSERT INTO pets (name, type, age) VALUES 
 ('voldemort','ipis 2',3);
--- insert adoption req
+-- insert adoption req (3RD)
 INSERT INTO adoption_requests (pet_id, requester_name, requester_contact) VALUES (2, "CLYDE", "exampleyeah@gmail.com");
 ;
--- search typa
+-- search typa 4TH)
 SELECT * FROM pets WHERE type='ipis';
 
 SELECT * FROM pets WHERE status='';
@@ -51,7 +52,7 @@ SELECT * FROM pets WHERE age<=2;
 DELETE FROM adoption_requests WHERE request_id IN (4,5)
 -- or WHERE pet_id=1 :3
 ;
--- updating
+-- updating (5TH)
 UPDATE pets
 SET status='PENDING'
 WHERE pet_id=1
