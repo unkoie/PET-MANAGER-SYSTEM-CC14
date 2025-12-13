@@ -25,7 +25,6 @@ CREATE TABLE adoption_requests (
     request_status VARCHAR(20) DEFAULT 'Pending',
     FOREIGN KEY (pet_id) REFERENCES pets(pet_id) ON DELETE CASCADE
 );
-
 ;
 -- show everything (2ND QUERY)
 SHOW TABLES;
