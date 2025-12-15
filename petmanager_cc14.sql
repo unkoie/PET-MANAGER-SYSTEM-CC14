@@ -59,7 +59,7 @@ SELECT
     r.requester_name,
     r.requester_contact,
     p.name AS pet_name,
-    p.type AS pet_type,
+    p.type AS animal_type,
     r.request_status
 FROM adoption_requests r
 JOIN pets p ON r.pet_id = p.pet_id;
