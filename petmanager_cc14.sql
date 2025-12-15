@@ -47,7 +47,7 @@ CREATE TABLE adoption_requests (
 -- 2. indexes
 -- --------------------
 CREATE INDEX idx_pet_status ON pets(status);
-CREATE INDEX idx_pet_type ON pets(type);
+CREATE INDEX idx_animal_type ON pets(type);
 CREATE INDEX idx_adoption_user ON adoption_requests(user_id);  
 
 -- --------------------
