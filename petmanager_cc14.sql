@@ -9,13 +9,14 @@ USE pet_manager;
 -- 1. tables
 -- --------------------
 
--- users table (with encryption)
+-- users table
 CREATE TABLE users (
     user_id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
     password VARBINARY(255) NOT NULL,  -- binary for aes encryption
-    email VARCHAR(100),
-    role VARCHAR(20) DEFAULT 'User'
+    email VARCHAR(100) NOT NULL,
+    role ENUM('Admin','User') DEFAULT 'User',  
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP  
 );
 
 -- pets table
@@ -24,17 +25,19 @@ CREATE TABLE pets (
     name VARCHAR(50) NOT NULL,
     type VARCHAR(30),
     age INT,
-    status VARCHAR(20) DEFAULT 'Available'
+    status ENUM('Available','Pending','Adopted') DEFAULT 'Available',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- adoption req table
+-- adoption_requests table
 CREATE TABLE adoption_requests (
     request_id INT AUTO_INCREMENT PRIMARY KEY,
     pet_id VARCHAR(10) NOT NULL,
     user_id INT,
-    requester_name VARCHAR(50),
-    requester_contact VARCHAR(50),
-    request_status VARCHAR(20) DEFAULT 'Pending',
+    requester_name VARCHAR(50) NOT NULL,
+    requester_contact VARCHAR(50) NOT NULL,
+    request_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    request_status ENUM('Pending','Approved','Rejected') DEFAULT 'Pending',
     UNIQUE(pet_id, requester_name), 
     FOREIGN KEY (pet_id) REFERENCES pets(pet_id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
@@ -45,6 +48,7 @@ CREATE TABLE adoption_requests (
 -- --------------------
 CREATE INDEX idx_pet_status ON pets(status);
 CREATE INDEX idx_pet_type ON pets(type);
+CREATE INDEX idx_adoption_user ON adoption_requests(user_id);  
 
 -- --------------------
 -- 3. views
@@ -64,15 +68,66 @@ JOIN pets p ON r.pet_id = p.pet_id;
 -- 4. stored procedures
 -- --------------------
 DELIMITER //
-CREATE PROCEDURE add_new_pet(
+
+CREATE PROCEDURE add_new_pet_safe(
     IN p_id VARCHAR(10), 
     IN p_name VARCHAR(50), 
     IN p_type VARCHAR(30), 
     IN p_age INT
 )
 BEGIN
-    INSERT INTO pets (pet_id, name, type, age) VALUES (p_id, p_name, p_type, p_age);
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK; 
+        SELECT 'Error: could not add new pet' AS message;
+    END;
+
+    START TRANSACTION;
+
+    -- check if pet_id already exists
+    IF EXISTS (SELECT 1 FROM pets WHERE pet_id = p_id) THEN
+        ROLLBACK;
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Error: pet ID already exists';
+    END IF;
+
+    INSERT INTO pets (pet_id, name, type, age) 
+    VALUES (p_id, p_name, p_type, p_age);
+
+    COMMIT;
 END //
+
+CREATE PROCEDURE add_adoption_request_safe(
+    IN p_pet_id VARCHAR(10),
+    IN p_user_id INT,
+    IN p_name VARCHAR(50),
+    IN p_contact VARCHAR(50)
+)
+BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        SELECT 'Error: Could not add adoption request' AS message;
+    END;
+
+    START TRANSACTION;
+
+    -- only update pet if available
+    IF EXISTS (SELECT 1 FROM pets WHERE pet_id = p_pet_id AND status = 'Available') THEN
+        INSERT INTO adoption_requests (pet_id, user_id, requester_name, requester_contact)
+        VALUES (p_pet_id, p_user_id, p_name, p_contact);
+
+        UPDATE pets
+        SET status = 'Pending'
+        WHERE pet_id = p_pet_id;
+
+        COMMIT;
+        SELECT 'Adoption request submitted successfully' AS message;
+    ELSE
+        ROLLBACK;
+        SELECT 'Pet is not available for adoption' AS message;
+    END IF;
+END //
+
 DELIMITER ;
 
 -- --------------------
@@ -102,7 +157,7 @@ INSERT INTO pets (pet_id, name, type, age) VALUES
 ('PET047','Coco', 'Parrot', 4),
 ('PET964','Blossom','Hamster',2);
 
--- adoption req
+-- adoption requests
 INSERT INTO adoption_requests (pet_id, requester_name, requester_contact) VALUES
 ('PET734', 'Auztin', 'auztin.dev@email.com'),
 ('PET048', 'Jhon', 'jhon.doe@gmail.com'),
@@ -115,7 +170,6 @@ SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
 
 START TRANSACTION;
 
--- user tryin to adopt a pet
 UPDATE pets SET status = 'Pending' 
 WHERE pet_id = 'PET677' AND status = 'Available';
 
