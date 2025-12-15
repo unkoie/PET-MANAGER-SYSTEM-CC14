@@ -106,7 +106,7 @@ BEGIN
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         ROLLBACK;
-        SELECT 'Error: Could not add adoption request' AS message;
+        SELECT 'Error: could not add adoption request' AS message;
     END;
 
     START TRANSACTION;
@@ -161,7 +161,8 @@ INSERT INTO pets (pet_id, name, type, age) VALUES
 INSERT INTO adoption_requests (pet_id, requester_name, requester_contact) VALUES
 ('PET734', 'Auztin', 'auztin.dev@email.com'),
 ('PET048', 'Jhon', 'jhon.doe@gmail.com'),
-('PET067', 'Serge', 'serge.v@gmail.org');
+('PET067', 'Serge', 'serge.v@gmail.org'),
+('PET964', 'Yomama', 'EZEZ.v@gmail.org');
 
 -- --------------------
 -- 6. transaction + concurrency test
@@ -170,11 +171,17 @@ SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
 
 START TRANSACTION;
 
-UPDATE pets SET status = 'Pending' 
-WHERE pet_id = 'PET677' AND status = 'Available';
+UPDATE pets
+SET status = 'Pending'
+WHERE pet_id IN ('PET734', 'PET048', 'PET067', 'PET964');
 
-INSERT INTO adoption_requests (pet_id, requester_name, requester_contact)
-VALUES ('PET677', 'Lara', 'lara.user@email.com');
+UPDATE adoption_requests
+SET request_status = 'Approved'
+WHERE request_id IN (1,2, 3, 4);
+
+UPDATE pets
+SET status = 'Adopted'
+WHERE pet_id = (SELECT pet_id FROM adoption_requests WHERE request_id = 1);
 
 COMMIT;
 
