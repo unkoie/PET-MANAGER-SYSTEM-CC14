@@ -69,33 +69,6 @@ JOIN pets p ON r.pet_id = p.pet_id;
 -- --------------------
 DELIMITER //
 
-CREATE PROCEDURE add_new_pet_safe(
-    IN p_id VARCHAR(10), 
-    IN p_name VARCHAR(50), 
-    IN p_type VARCHAR(30), 
-    IN p_age INT
-)
-BEGIN
-    DECLARE EXIT HANDLER FOR SQLEXCEPTION
-    BEGIN
-        ROLLBACK; 
-        SELECT 'Error: could not add new pet' AS message;
-    END;
-
-    START TRANSACTION;
-
-    -- check if pet_id already exists
-    IF EXISTS (SELECT 1 FROM pets WHERE pet_id = p_id) THEN
-        ROLLBACK;
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Error: pet ID already exists';
-    END IF;
-
-    INSERT INTO pets (pet_id, name, type, age) 
-    VALUES (p_id, p_name, p_type, p_age);
-
-    COMMIT;
-END //
-
 CREATE PROCEDURE add_adoption_request_safe(
     IN p_pet_id VARCHAR(10),
     IN p_user_id INT,
@@ -111,27 +84,33 @@ BEGIN
 
     START TRANSACTION;
 
-    -- only update pet if available
+    -- Check if pet exists and is available
     IF EXISTS (SELECT 1 FROM pets WHERE pet_id = p_pet_id AND status = 'Available') THEN
+
+        -- Insert the adoption request
         INSERT INTO adoption_requests (pet_id, user_id, requester_name, requester_contact)
         VALUES (p_pet_id, p_user_id, p_name, p_contact);
 
+        -- Update pet status to Pending
         UPDATE pets
         SET status = 'Pending'
         WHERE pet_id = p_pet_id;
 
         COMMIT;
         SELECT 'Adoption request submitted successfully' AS message;
+
     ELSE
         ROLLBACK;
         SELECT 'Pet is not available for adoption' AS message;
     END IF;
+
 END //
 
 DELIMITER ;
 
+
 -- --------------------
--- 5. sample insertion
+-- 5. crud operations
 -- --------------------
 -- users
 INSERT INTO users (username, password, email, role) VALUES
@@ -155,14 +134,16 @@ INSERT INTO pets (pet_id, name, type, age) VALUES
 ('PET759','Milo', 'Cat', 1),
 ('PET677','Bubbles','Fish', 1),
 ('PET047','Coco', 'Parrot', 4),
-('PET964','Blossom','Hamster',2);
+('PET964','Blossom','Hamster',2),
+('PET696', 'Monke', 'Ape', 3);
 
 -- adoption requests
 INSERT INTO adoption_requests (pet_id, requester_name, requester_contact) VALUES
 ('PET734', 'Auztin', 'auztin.dev@email.com'),
 ('PET048', 'Jhon', 'jhon.doe@gmail.com'),
 ('PET067', 'Serge', 'serge.v@gmail.org'),
-('PET964', 'Yomama', 'EZEZ.v@gmail.org');
+('PET964', 'Yomama', 'EZEZ.v@gmail.org'),
+('PET696', 'Andre', 'yomama@gmail.com');
 
 -- --------------------
 -- 6. transaction + concurrency test
@@ -171,8 +152,11 @@ SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
 
 START TRANSACTION;
 
+-- UPDATE pets SET status = 'adopted' WHERE pet_id= 'PET696';
+-- UPDATE adoption_requests SET request_status = 'approved' WHERE request_id= 5;
+
 UPDATE pets
-SET status = 'Pending'
+SET status = 'pending'
 WHERE pet_id IN ('PET734', 'PET048', 'PET067', 'PET964');
 
 UPDATE adoption_requests
@@ -194,7 +178,14 @@ COMMIT;
 -- --------------------
 -- 8. testing
 -- --------------------
+-- SELECT name, status FROM pets WHERE type = 'Dog';
+-- EXPLAIN SELECT * FROM pets WHERE status = 'Available';
+-- EXPLAIN SELECT * FROM pets WHERE status = 'Available';
+-- SHOW index from pets;
+-- CALL add_adoption_request_safe('PET048', 1,'john doe', 'johndoe@gmail.com');
+
 SHOW TABLES;
+
 
 SELECT username, password FROM users;
 SELECT * FROM pets;
